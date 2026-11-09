@@ -151,6 +151,8 @@ select option { color: #0f172a; }
 .editor textarea { min-height: 320px; resize: vertical; padding: 14px; line-height: 1.6; font-size: 1rem; }
 .stats { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { font-size: 0.78rem; padding: 3px 10px; border-radius: 999px; background: var(--field); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip-btn { border: 1px solid var(--glass-border); cursor: pointer; transition: background 0.2s, color 0.2s, transform 0.15s; }
+.chip-btn:hover { background: var(--danger); color: #fff; border-color: var(--danger); transform: translateY(-1px); }
 .interim { color: var(--muted); font-style: italic; padding: 0 4px; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
 
