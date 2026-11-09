@@ -1,4 +1,10 @@
 node_modules
 .next
 .env.local
+.env*.local
 next-env.d.ts
+*.pem
+*-firebase-adminsdk-*.json
+
+# Documentación privada del proyecto (no se sube a Git)
+DOCUMENTACION_PRIVADA.md
