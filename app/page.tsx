@@ -1,8 +1,20 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AudioPlayer from "@/components/AudioPlayer";
+import { useAuth } from "@/components/AuthProvider";
+import AuthModal, { type AuthMode } from "@/components/AuthModal";
 import LiveVisualizer from "@/components/LiveVisualizer";
-import { callGemini, transcribeAudioFile, countWords, downloadText, formatFileSize } from "@/lib/utils";
+import UpgradeModal from "@/components/UpgradeModal";
+import { FREE_MAX_BYTES, MB, TARGETS, maxBytesFor } from "@/lib/plans";
+import {
+  ApiError,
+  callGemini,
+  countWords,
+  exportFile,
+  formatFileSize,
+  requestPaymentNotice,
+  transcribeAudioFile,
+} from "@/lib/utils";
 
 const LANGS = [
   { code: "es-ES", label: "España" },
@@ -21,11 +33,11 @@ const ACTIONS = [
   { id: "translate", icon: "🌐", label: "Traducir" },
 ] as const;
 
-const TARGETS = ["inglés", "francés", "alemán", "italiano", "portugués", "catalán", "japonés", "chino"];
-
 type Tab = "mic" | "file";
 
 export default function Home() {
+  const { user, name: userName, plan, loading: authLoading, signOut, getToken } = useAuth();
+
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [tab, setTab] = useState<Tab>("mic");
   const [text, setText] = useState("");
@@ -38,9 +50,11 @@ export default function Home() {
   const [busy, setBusy] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState("");
   const [aiLabel, setAiLabel] = useState("");
-  const [target, setTarget] = useState("inglés");
+  const [target, setTarget] = useState<string>("inglés");
   const [toast, setToast] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+  const [upgrade, setUpgrade] = useState<{ open: boolean; reason?: string }>({ open: false });
 
   const recRef = useRef<any>(null);
   const wantRef = useRef(false);
@@ -51,6 +65,30 @@ export default function Home() {
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 4500);
   }, []);
+
+  const openUpgrade = (reason?: string) => setUpgrade({ open: true, reason });
+
+  /** Devuelve el token o abre el login si no hay sesión. */
+  const requireToken = async (): Promise<string> => {
+    const t = await getToken();
+    if (!t) {
+      setAuthMode("login");
+      throw new ApiError("Inicia sesión para continuar.", 401, "AUTH_REQUIRED");
+    }
+    return t;
+  };
+
+  const handleError = (e: unknown) => {
+    if (e instanceof ApiError) {
+      if (e.code === "PRO_REQUIRED" || e.code === "LIMIT_EXCEEDED") return openUpgrade(e.message);
+      if (e.code === "AUTH_REQUIRED") {
+        setAuthMode("login");
+        return notify(e.message, "err");
+      }
+      return notify(e.message, "err");
+    }
+    notify("Ocurrió un error inesperado.", "err");
+  };
 
   // Tema
   useEffect(() => {
@@ -121,7 +159,7 @@ export default function Home() {
       setInterim("");
       if (wantRef.current) {
         try {
-          rec.start(); // Reconexión continua
+          rec.start();
         } catch {}
       } else setListening(false);
     };
@@ -159,7 +197,7 @@ export default function Home() {
     }
   };
 
-  // Carga de archivo
+  // Archivos
   const acceptFile = (f: File | undefined | null) => {
     if (!f) return;
     if (!f.type.startsWith("audio/") && !/\.(mp3|wav|m4a|ogg|flac|aac|webm|opus|mp4)$/i.test(f.name)) {
@@ -170,46 +208,80 @@ export default function Home() {
     setTab("file");
   };
 
+  const limit = maxBytesFor(plan);
+  const overLimit = !!file && file.size > limit;
+
   const transcribeFile = async () => {
     if (!file) return;
+    if (!user) {
+      setAuthMode("register");
+      notify("Crea una cuenta gratis para transcribir archivos.", "err");
+      return;
+    }
+    if (overLimit) {
+      openUpgrade(`Tu archivo pesa ${formatFileSize(file.size)}. El plan gratis admite hasta ${FREE_MAX_BYTES / MB} MB.`);
+      return;
+    }
     setBusy("transcribe");
     try {
-      const result = await transcribeAudioFile(file);
+      const token = await requireToken();
+      const result = await transcribeAudioFile(file, token);
       setText((p) => (p.trim() ? p.trimEnd() + "\n\n" : "") + result);
       notify("¡Audio transcrito exitosamente!");
-    } catch (e: any) {
-      notify(e.message, "err");
+    } catch (e) {
+      handleError(e);
     } finally {
       setBusy(null);
     }
   };
 
-  // Acciones con Gemini
+  // Gemini
   const runAI = async (id: string, label: string) => {
+    if (!user) {
+      setAuthMode("register");
+      notify("Crea una cuenta gratis para usar la IA.", "err");
+      return;
+    }
     if (!text.trim()) {
       notify("Primero escribe o dicta algo de texto.", "err");
       return;
     }
     setBusy(id);
     try {
-      const result = await callGemini({ action: id, text, target });
+      const token = await requireToken();
+      const result = await callGemini({ action: id, text, target }, token);
       setAiResult(result);
       setAiLabel(label);
-    } catch (e: any) {
-      notify(e.message, "err");
+    } catch (e) {
+      handleError(e);
     } finally {
       setBusy(null);
     }
   };
 
-  // Herramientas de texto y reseteo completo
-  const resetAll = () => {
-    const hasData = text.trim() || interim || file || aiResult;
-    if (hasData && !confirm("¿Iniciar una nueva transcripción? Se borrará el texto actual, archivo cargado y resultados de IA.")) {
+  // Descarga (solo Pro; verificada en el servidor)
+  const doExport = async (content: string, format: "txt" | "md", base: string) => {
+    if (!user) {
+      setAuthMode("register");
+      notify("Crea una cuenta para continuar.", "err");
       return;
     }
+    if (plan !== "pro") {
+      openUpgrade("Descargar en .txt y .md es una función del plan Pro.");
+      return;
+    }
+    try {
+      await exportFile(content, format, base, await requireToken());
+    } catch (e) {
+      handleError(e);
+    }
+  };
 
-    // Detener escucha si está activa
+  const resetAll = () => {
+    const hasData = text.trim() || interim || file || aiResult;
+    if (hasData && !confirm("¿Iniciar una nueva transcripción? Se borrará el texto actual, el archivo cargado y los resultados de IA.")) {
+      return;
+    }
     if (listening && recRef.current) {
       wantRef.current = false;
       try {
@@ -217,18 +289,15 @@ export default function Home() {
       } catch {}
       setListening(false);
     }
-
     setText("");
     setInterim("");
     setFile(null);
     setAiResult("");
     setAiLabel("");
     setBusy(null);
-
     try {
       localStorage.removeItem("transcript");
     } catch {}
-
     notify("Nueva transcripción iniciada. Todo en cero.");
   };
 
@@ -244,6 +313,7 @@ export default function Home() {
 
   const words = countWords(text);
   const chars = text.length;
+  const lock = plan === "pro" ? "" : "🔒 ";
 
   return (
     <>
@@ -273,17 +343,31 @@ export default function Home() {
             <span className="logo" aria-hidden="true">🎙️</span>
             <div>
               <h1>Voz a Texto</h1>
-              <p>Transcripción en español con IA (Sin límite de tamaño)</p>
+              <p>Transcripción en español con IA</p>
             </div>
           </div>
           <div className="header-actions">
-            <button
-              className="btn primary new-session-btn"
-              onClick={resetAll}
-              title="Reiniciar todo a cero e iniciar nueva transcripción"
-            >
+            <button className="btn primary new-session-btn" onClick={resetAll} title="Reiniciar todo a cero">
               ✨ Nueva transcripción
             </button>
+            {!authLoading &&
+              (user ? (
+                <>
+                  <span className="user-chip" title={user.email ?? ""}>
+                    👤 {userName || user.email}
+                    <span className={`badge ${plan}`}>{plan === "pro" ? "Pro" : "Gratis"}</span>
+                  </span>
+                  {plan !== "pro" && (
+                    <button className="btn" onClick={() => openUpgrade()}>⭐ Pro</button>
+                  )}
+                  <button className="btn" onClick={() => signOut()}>Salir</button>
+                </>
+              ) : (
+                <>
+                  <button className="btn" onClick={() => setAuthMode("login")}>Iniciar sesión</button>
+                  <button className="btn" onClick={() => setAuthMode("register")}>Crear cuenta</button>
+                </>
+              ))}
             <button
               className="icon-btn"
               onClick={toggleTheme}
@@ -296,7 +380,6 @@ export default function Home() {
         </header>
 
         <div className="grid">
-          {/* Panel de Entrada de Voz / Archivo */}
           <section className="glass card" aria-labelledby="in-title">
             <h2 id="in-title" className="sr-only">Entrada de audio</h2>
             <div className="tabs" role="tablist">
@@ -349,25 +432,28 @@ export default function Home() {
                   <small>
                     {file
                       ? `Tamaño: ${formatFileSize(file.size)} · Pulsa para cambiar archivo`
-                      : "o pulsa para elegir archivo (MP3, WAV, M4A, OGG, FLAC... sin límite de tamaño)"}
+                      : "o pulsa para elegir archivo (MP3, WAV, M4A, OGG, FLAC…)"}
                   </small>
                 </label>
+                <p className={`limit ${overLimit ? "bad" : ""}`}>
+                  {plan === "pro" ? "Plan Pro: archivos de hasta 2 GB." : `Plan gratis: archivos de hasta ${FREE_MAX_BYTES / MB} MB.`}{" "}
+                  {plan !== "pro" && (
+                    <button className="link" onClick={() => openUpgrade()}>Ampliar a 2 GB</button>
+                  )}
+                </p>
                 {file && (
                   <>
                     <AudioPlayer file={file} />
                     <button className="btn primary" onClick={transcribeFile} disabled={busy === "transcribe"}>
-                      {busy === "transcribe" ? <span className="spin" /> : "✨"} Transcribir con Gemini
+                      {busy === "transcribe" ? <span className="spin" /> : overLimit ? "🔒" : "✨"} Transcribir con Gemini
                     </button>
-                    <small className="hint">
-                      Procesado con Google Gemini Files API. Soporta audios largos y de alta duración.
-                    </small>
+                    {!user && <small className="hint">Necesitas una cuenta gratuita para transcribir archivos.</small>}
                   </>
                 )}
               </div>
             )}
           </section>
 
-          {/* Editor de Transcripción */}
           <section className="glass card editor" aria-labelledby="ed-title">
             <div className="card-head">
               <h2 id="ed-title">Transcripción</h2>
@@ -388,17 +474,18 @@ export default function Home() {
               aria-label="Texto transcrito"
               spellCheck
               lang="es"
+              maxLength={200000}
             />
             {interim && <p className="interim">{interim}</p>}
             <div className="toolbar">
               <button className="btn" onClick={() => copy(text)} disabled={!text}>
                 {copied ? "✔ Copiado" : "📋 Copiar"}
               </button>
-              <button className="btn" onClick={() => downloadText(text, "transcripcion.txt", "text/plain")} disabled={!text}>
-                ⬇️ .txt
+              <button className="btn" onClick={() => doExport(text, "txt", "transcripcion")} disabled={!text}>
+                {lock}⬇️ .txt
               </button>
-              <button className="btn" onClick={() => downloadText(text, "transcripcion.md", "text/markdown")} disabled={!text}>
-                ⬇️ .md
+              <button className="btn" onClick={() => doExport(text, "md", "transcripcion")} disabled={!text}>
+                {lock}⬇️ .md
               </button>
               <button
                 className="btn danger"
@@ -413,9 +500,11 @@ export default function Home() {
                 🗑️ Borrar
               </button>
             </div>
+            {plan !== "pro" && text && (
+              <small className="hint">🔒 Descargar en .txt / .md requiere el plan Pro. Copiar es gratis.</small>
+            )}
           </section>
 
-          {/* Herramientas de IA (Gemini) */}
           <section className="glass card ai" aria-labelledby="ai-title">
             <div className="card-head">
               <h2 id="ai-title">✨ Gemini IA</h2>
@@ -440,6 +529,7 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            {!user && <small className="hint">Crea una cuenta gratis para usar las herramientas de IA.</small>}
 
             {aiResult && (
               <div className="result" aria-live="polite">
@@ -458,8 +548,8 @@ export default function Home() {
                     Añadir al final
                   </button>
                   <button className="btn" onClick={() => copy(aiResult)}>📋 Copiar</button>
-                  <button className="btn" onClick={() => downloadText(aiResult, "resultado.md", "text/markdown")}>
-                    ⬇️ .md
+                  <button className="btn" onClick={() => doExport(aiResult, "md", "resultado")}>
+                    {lock}⬇️ .md
                   </button>
                 </div>
               </div>
@@ -467,9 +557,21 @@ export default function Home() {
           </section>
         </div>
 
-        <footer className="footer">Desarrollado con Next.js · Web Speech API · Gemini Files API</footer>
+        <footer className="footer">Desarrollado por Raúl Rosales · Next.js · Web Speech API · Gemini</footer>
       </main>
 
+      {authMode && <AuthModal mode={authMode} onMode={setAuthMode} onClose={() => setAuthMode(null)} />}
+      {upgrade.open && (
+        <UpgradeModal
+          reason={upgrade.reason}
+          onClose={() => setUpgrade({ open: false })}
+          onNotify={async () => requestPaymentNotice(await requireToken())}
+          onRegister={() => {
+            setUpgrade({ open: false });
+            setAuthMode("register");
+          }}
+        />
+      )}
       {dragging && <div className="drag-overlay">Suelta el archivo de audio para cargarlo</div>}
       {toast && (
         <div className={`toast ${toast.kind}`} role="status">
