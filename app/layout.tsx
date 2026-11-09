@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import AuthProvider from "@/components/AuthProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,8 +11,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#eef2ff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b1020" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f8ff" },
+    { media: "(prefers-color-scheme: dark)", color: "#071226" },
   ],
 };
 
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
