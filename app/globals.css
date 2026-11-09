@@ -78,6 +78,8 @@ h1, h2, p { margin: 0; }
 .card-head h2 { font-size: 1.1rem; }
 
 .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; }
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.new-session-btn { font-size: 0.9rem; padding: 8px 16px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .brand { display: flex; gap: 12px; align-items: center; }
 .brand h1 { font-size: 1.3rem; }
 .brand p { color: var(--muted); font-size: 0.85rem; }

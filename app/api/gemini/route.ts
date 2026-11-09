@@ -51,16 +51,32 @@ export async function POST(req: Request) {
       // Guardar temporalmente para subirlo a la Files API de Gemini
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      const ext = file.name.split(".").pop() || "mp3";
+      const ext = (file.name.split(".").pop() || "mp3").toLowerCase();
       tempFilePath = join(tmpdir(), `audio_${randomUUID()}.${ext}`);
       await writeFile(tempFilePath, buffer);
 
-      const mimeType = file.type || "audio/mpeg";
-      // Subir mediante Files API de Google GenAI
+      // Resolver mimeType confiable según extensión o tipo reportado
+      const mimeMap: Record<string, string> = {
+        mp3: "audio/mp3",
+        wav: "audio/wav",
+        m4a: "audio/m4a",
+        ogg: "audio/ogg",
+        flac: "audio/flac",
+        aac: "audio/aac",
+        webm: "audio/webm",
+        opus: "audio/opus",
+        mp4: "audio/mp4",
+      };
+      const mimeType = file.type || mimeMap[ext] || "audio/mp3";
+
+      // Subir mediante Files API de Google GenAI usando config.mimeType
       uploadedFile = await ai.files.upload({
         file: tempFilePath,
-        mimeType: mimeType,
-      } as any);
+        config: {
+          mimeType: mimeType,
+          displayName: file.name,
+        },
+      });
 
       // Esperar si entra en procesamiento preliminar
       let fileState = await ai.files.get({ name: uploadedFile.name });

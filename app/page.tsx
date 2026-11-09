@@ -202,7 +202,36 @@ export default function Home() {
     }
   };
 
-  // Utilidades
+  // Herramientas de texto y reseteo completo
+  const resetAll = () => {
+    const hasData = text.trim() || interim || file || aiResult;
+    if (hasData && !confirm("¿Iniciar una nueva transcripción? Se borrará el texto actual, archivo cargado y resultados de IA.")) {
+      return;
+    }
+
+    // Detener escucha si está activa
+    if (listening && recRef.current) {
+      wantRef.current = false;
+      try {
+        recRef.current.stop();
+      } catch {}
+      setListening(false);
+    }
+
+    setText("");
+    setInterim("");
+    setFile(null);
+    setAiResult("");
+    setAiLabel("");
+    setBusy(null);
+
+    try {
+      localStorage.removeItem("transcript");
+    } catch {}
+
+    notify("Nueva transcripción iniciada. Todo en cero.");
+  };
+
   const copy = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
@@ -247,14 +276,23 @@ export default function Home() {
               <p>Transcripción en español con IA (Sin límite de tamaño)</p>
             </div>
           </div>
-          <button
-            className="icon-btn"
-            onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-            title="Cambiar tema"
-          >
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
+          <div className="header-actions">
+            <button
+              className="btn primary new-session-btn"
+              onClick={resetAll}
+              title="Reiniciar todo a cero e iniciar nueva transcripción"
+            >
+              ✨ Nueva transcripción
+            </button>
+            <button
+              className="icon-btn"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+              title="Cambiar tema"
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
+          </div>
         </header>
 
         <div className="grid">
@@ -336,6 +374,11 @@ export default function Home() {
               <div className="stats" aria-live="polite">
                 <span className="chip">{words} palabras</span>
                 <span className="chip">{chars} caracteres</span>
+                {(text || file || aiResult) && (
+                  <button className="chip chip-btn" onClick={resetAll} title="Volver a cero">
+                    🔄 Reiniciar
+                  </button>
+                )}
               </div>
             </div>
             <textarea
