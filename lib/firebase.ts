@@ -17,3 +17,4 @@ export function getFirebaseAuth(): Auth | null {
   const app = getApps()[0] ?? initializeApp(cfg as Record<string, string>);
   return getAuth(app);
 }
+

@@ -62,3 +62,4 @@ export function errorResponse(e: unknown) {
   console.error(e);
   return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
 }
+

@@ -116,3 +116,4 @@ export default function AuthModal({ mode, onMode, onClose }: { mode: AuthMode; o
     </div>
   );
 }
+

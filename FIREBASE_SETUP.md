@@ -59,3 +59,4 @@ En **Firestore > users > (tu usuario)**: cambia el campo `plan` a `pro` (opciona
 - Considera exigir correo verificado (`email_verified`) antes de transcribir.
 - Para varias instancias, reemplaza el limitador en memoria (`lib/rateLimit.ts`) por Redis/Upstash.
 - Define cuotas y alertas de gasto en Google Cloud para la clave de Gemini.
+
