@@ -1,10 +1,12 @@
 "use client";
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut as fbSignOut,
   updateProfile,
   type User,
@@ -21,6 +23,7 @@ interface AuthCtx {
   configured: boolean;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   getToken: () => Promise<string | null>;
@@ -114,6 +117,20 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         try {
           await signInWithEmailAndPassword(auth, email, password);
         } catch (e) {
+          throw friendly(e);
+        }
+      },
+      async signInWithGoogle() {
+        const auth = getFirebaseAuth();
+        if (!auth) throw new Error("Firebase no está configurado.");
+        try {
+          const provider = new GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: "select_account" });
+          const res = await signInWithPopup(auth, provider);
+          setName(res.user.displayName || "");
+          loadPlan(res.user);
+        } catch (e: any) {
+          if (e?.code === "auth/popup-closed-by-user") return;
           throw friendly(e);
         }
       },

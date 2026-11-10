@@ -126,7 +126,10 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3) Acciones de texto (JSON)
+    // 3) Acciones de texto (JSON). Las herramientas de IA son exclusivas del plan Pro.
+    if (user.plan !== "pro") {
+      throw new HttpError(402, "Las herramientas de IA son una función del plan Pro.", "PRO_REQUIRED");
+    }
     if (contentLength > MAX_JSON_BYTES) throw new HttpError(413, "El texto es demasiado grande.");
     let body: any;
     try {
