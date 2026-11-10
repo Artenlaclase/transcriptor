@@ -103,3 +103,57 @@ C:\proyectos\transcriptor\
 └── tsconfig.json                # Configuración de TypeScript
 ```
 
+
+
+---
+
+# Registro de cambios posteriores (se agregan al final, sin reemplazar lo anterior)
+
+> Convención: cada cambio nuevo se añade debajo con fecha, qué se hizo y por qué.
+
+## 09-11-2026 · Corrección de la subida de audio a Gemini
+- **Problema:** `Can not determine mimeType. Please provide mimeType in the config`.
+- **Causa:** el SDK `@google/genai` espera el tipo MIME dentro de `config`, no en la raíz de `files.upload`.
+- **Solución:** `ai.files.upload({ file, config: { mimeType, displayName } })` y un mapa de extensión → MIME para cuando el navegador no informa el tipo (`.m4a`, `.opus`, etc.).
+
+## 09-11-2026 · Botón «Nueva transcripción» / «Reiniciar»
+- Detiene el micrófono y borra texto, texto provisional, archivo cargado, resultados de IA y `localStorage`.
+- Pide confirmación si hay datos, para evitar pérdidas accidentales.
+- Disponible en la cabecera (botón principal) y junto al contador del editor (chip «🔄 Reiniciar»).
+
+## 09-11-2026 · Seguridad, cuentas y planes
+**Qué cambió**
+- Todas las rutas `/api/*` exigen sesión: el cliente envía el *ID token* de Firebase y el servidor lo verifica con Firebase Admin (`lib/serverAuth.ts`).
+- **Plan gratis:** archivos de hasta 20 MB. **Plan Pro:** hasta 2 GB y descargas `.txt`/`.md`. El plan se lee de Firestore (`users/{uid}.plan`, con `proUntil` opcional) en el servidor, nunca del navegador.
+- Nuevas rutas: `/api/me` (plan y aviso «avísame cuando haya pago») y `/api/export` (descarga solo Pro).
+- Precio Pro: \$5.990 CLP/mes con equivalencia referencial en USD (`NEXT_PUBLIC_CLP_USD_RATE`, por defecto 950). Mensaje «sistema de pago en proceso».
+- Registro con nombre, correo y contraseña (mín. 8), login, recuperación de contraseña y correo de verificación.
+- Cabeceras de seguridad en `next.config.mjs` (CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy con micrófono permitido) y `poweredByHeader: false`.
+- Validaciones: listas permitidas (acciones, idiomas, extensiones), tope de 200.000 caracteres y 1 MB en JSON, nombre de descarga saneado, limitador de tasa por IP/usuario/hora.
+- El audio se envía como `Blob` directo a Gemini: ya no se escribe nada en el disco del servidor.
+
+**Por qué**
+- Sin sesión, cualquiera podría gastar tu cuota de Gemini; por eso la IA y los archivos requieren cuenta.
+- Si el plan se validara solo en el cliente, se saltaría editando el navegador; por eso la verificación y la descarga pasan por el servidor.
+- Firestore queda con reglas «todo denegado» y sin SDK de Firestore en el cliente: menor superficie de ataque.
+- `firebase-admin` se fijó en la **versión 13**: la 14 pide `@google-cloud/firestore` aparte y carga módulos ESM que Node 20.17 no soporta.
+
+**Riesgos pendientes:** archivos de 2 GB se leen en memoria del servidor (conviene subida directa a almacenamiento); limitador en memoria (usar Redis si hay varias instancias); activar App Check y exigir correo verificado; `'unsafe-inline'` en la CSP.
+
+**Guía de configuración:** `FIREBASE_SETUP.md`. **Documentación privada:** `DOCUMENTACION_PRIVADA.md` (en `.gitignore`).
+
+## 09-11-2026 · Nueva paleta blanco y azul
+- Variables CSS (`--accent`, `--accent2`, `--grad`, `--glass`, etc.) rediseñadas para modo claro (blanco, celeste, azul) y oscuro (azul marino).
+- Se eliminó el rosa/violeta. El rojo se reserva para grabación y errores.
+- Se añadieron estilos para los modales de cuenta y plan.
+
+## 09-11-2026 · Mensajes de error de autenticación más claros
+- **Problema:** el mensaje «No se pudo completar la operación» ocultaba la causa real.
+- **Solución:** se tradujeron los errores comunes de Firebase (método no habilitado, Authentication sin activar, API key inválida, dominio no autorizado, cuenta deshabilitada, etc.). Para cualquier otro error se muestra su código (`código: auth/...`) y se registra en la consola.
+- **Por qué:** acelera el diagnóstico de la configuración de Firebase sin exponer datos sensibles.
+
+## 09-11-2026 · Copiar y descargar bloqueados sin sesión
+- **Qué:** sin iniciar sesión, el botón «Copiar», `Ctrl+C` y `Ctrl+X` sobre el texto quedan bloqueados y abren el registro. Con sesión gratuita se puede copiar; descargar `.txt`/`.md` requiere plan Pro.
+- **Por qué:** el texto transcrito es el valor que entrega la app; se pide cuenta para acceder a él.
+- **Decisión:** «Borrar» y «Reiniciar» siguen libres porque no entregan el contenido.
+- **Limitación:** el bloqueo de copiar se hace en el navegador y puede saltarse con las herramientas de desarrollador. La descarga sí está protegida en el servidor. Para un bloqueo total habría que ocultar el texto hasta iniciar sesión.
