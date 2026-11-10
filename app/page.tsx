@@ -235,11 +235,15 @@ export default function Home() {
     }
   };
 
-  // Gemini
+  // Gemini (Exclusivo Plan Pro)
   const runAI = async (id: string, label: string) => {
     if (!user) {
       setAuthMode("register");
-      notify("Crea una cuenta gratis para usar la IA.", "err");
+      notify("Crea una cuenta o inicia sesión para ver las funciones de IA.", "err");
+      return;
+    }
+    if (plan !== "pro") {
+      openUpgrade("Las herramientas de IA (resumen, corrección, notas y traducción) son exclusivas del plan Pro.");
       return;
     }
     if (!text.trim()) {
@@ -525,7 +529,7 @@ export default function Home() {
 
           <section className="glass card ai" aria-labelledby="ai-title">
             <div className="card-head">
-              <h2 id="ai-title">✨ Gemini IA</h2>
+              <h2 id="ai-title">✨ Gemini IA <span className="badge pro">Solo Pro</span></h2>
               <label className="field inline">
                 <span>Traducir a</span>
                 <select value={target} onChange={(e) => setTarget(e.target.value)}>
@@ -543,11 +547,16 @@ export default function Home() {
                   disabled={!!busy}
                   onClick={() => runAI(a.id, a.id === "translate" ? `Traducción (${target})` : a.label)}
                 >
-                  {busy === a.id ? <span className="spin" /> : a.icon} {a.label}
+                  {busy === a.id ? <span className="spin" /> : plan === "pro" ? a.icon : "🔒 " + a.icon} {a.label}
                 </button>
               ))}
             </div>
-            {!user && <small className="hint">Crea una cuenta gratis para usar las herramientas de IA.</small>}
+            {plan !== "pro" && (
+              <small className="hint">
+                🔒 Las herramientas inteligentes de Gemini (resumen, corrección, formato y traducción) requieren el plan Pro.{" "}
+                <button className="link" onClick={() => openUpgrade()}>Ver plan Pro</button>
+              </small>
+            )}
 
             {aiResult && (
               <div className="result" aria-live="polite">

@@ -59,8 +59,8 @@ export default function UpgradeModal({
           </thead>
           <tbody>
             <tr><td>Dictado por micrófono</td><td>✔</td><td>✔</td></tr>
-            <tr><td>Herramientas de IA</td><td>✔ (con cuenta)</td><td>✔</td></tr>
-            <tr><td>Tamaño de archivo</td><td>hasta {FREE_MAX_BYTES / MB} MB</td><td>hasta 2 GB</td></tr>
+            <tr><td>Herramientas de IA (Gemini)</td><td>✘ (Solo Pro)</td><td>✔ Ilimitadas</td></tr>
+            <tr><td>Tamaño de archivo de audio</td><td>hasta {FREE_MAX_BYTES / MB} MB</td><td>hasta 2 GB</td></tr>
             <tr><td>Descargar .txt / .md</td><td>✘</td><td>✔</td></tr>
           </tbody>
         </table>

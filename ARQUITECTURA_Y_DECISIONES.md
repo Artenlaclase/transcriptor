@@ -157,3 +157,19 @@ C:\proyectos\transcriptor\
 - **Por qué:** el texto transcrito es el valor que entrega la app; se pide cuenta para acceder a él.
 - **Decisión:** «Borrar» y «Reiniciar» siguen libres porque no entregan el contenido.
 - **Limitación:** el bloqueo de copiar se hace en el navegador y puede saltarse con las herramientas de desarrollador. La descarga sí está protegida en el servidor. Para un bloqueo total habría que ocultar el texto hasta iniciar sesión.
+
+
+## 09-11-2026 · Nombre en base de datos, Google Sign-In y herramientas de IA exclusivas del Plan Pro
+- **1. Guardado de nombre en Firestore (`users/{uid}`):**
+  - Al autenticar o registrar un usuario, el servidor (`lib/serverAuth.ts`) extrae el nombre verificado del token de Firebase (`decoded.name`) y lo almacena en el documento Firestore correspondiente (`name: tokenName`). Si un usuario existente no tenía nombre, se actualiza automáticamente con `merge: true`.
+  - Se añade también el campo `provider` para registrar el origen de la cuenta (`google.com`, `password`, etc.).
+- **2. Autenticación con Google (Google Sign-In):**
+  - Implementación de `signInWithPopup` y `GoogleAuthProvider` en `components/AuthProvider.tsx`.
+  - Agregado del botón interactivo con el logo oficial de Google en `components/AuthModal.tsx` tanto para inicio de sesión como para registro rápido en un solo clic.
+  - La ventana modal permite alternar entre Google y correo/contraseña.
+- **3. Herramientas de IA (Gemini) exclusivas del Plan Pro:**
+  - **Decisión de negocio:** Las funciones inteligentes de IA (Resumir, Corregir gramática, Formato de notas, Puntos clave y Traducir) implican consumo recurrente de cuota y valor añadido superior; por lo tanto, se movieron exclusivamente al **Plan Pro** y quedaron bloqueadas para el plan Gratis.
+  - **Doble validación de seguridad:**
+    - **En UI (`app/page.tsx`):** Cada botón de IA muestra el icono de candado `🔒` para usuarios con plan Gratis o sin sesión, y al hacer clic abre la comparativa y el aviso de suscripción Pro (`UpgradeModal`).
+    - **En Backend (`app/api/gemini/route.ts`):** Las peticiones JSON de IA rechazan con código `402 (PRO_REQUIRED)` si el usuario no cuenta con `user.plan === 'pro'`, impidiendo cualquier elusión de las restricciones desde el cliente.
+  - La tabla de planes en `UpgradeModal.tsx` y la documentación se actualizaron para reflejar esta nueva estructura comercial.
