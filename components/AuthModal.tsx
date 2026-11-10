@@ -9,6 +9,7 @@ export default function AuthModal({ mode, onMode, onClose }: { mode: AuthMode; o
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,6 +29,9 @@ export default function AuthModal({ mode, onMode, onClose }: { mode: AuthMode; o
     if (mode === "register") {
       if (name.trim().length < 2) return setError("Escribe tu nombre.");
       if (password.length < 8) return setError("La contraseña debe tener al menos 8 caracteres.");
+      if (!acceptedTerms) {
+        return setError("Debes aceptar la Política de Privacidad y la Política de Cookies para continuar.");
+      }
     }
     setBusy(true);
     try {
@@ -129,6 +133,26 @@ export default function AuthModal({ mode, onMode, onClose }: { mode: AuthMode; o
               required
             />
           </label>
+          {mode === "register" && (
+            <label className="terms-check">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                required
+              />
+              <span>
+                He leído y acepto la{" "}
+                <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="link">
+                  Política de Privacidad
+                </a>{" "}
+                y la{" "}
+                <a href="/cookies" target="_blank" rel="noopener noreferrer" className="link">
+                  Política de Cookies
+                </a>.
+              </span>
+            </label>
+          )}
           {error && <p className="warn" role="alert">{error}</p>}
           {info && <p className="okmsg" role="status">{info}</p>}
           <button className="btn primary" type="submit" disabled={busy || !configured}>

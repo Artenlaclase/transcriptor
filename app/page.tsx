@@ -55,6 +55,22 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const [upgrade, setUpgrade] = useState<{ open: boolean; reason?: string }>({ open: false });
+  const [showCookieBanner, setShowCookieBanner] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("cookies_accepted")) {
+        setShowCookieBanner(true);
+      }
+    } catch {}
+  }, []);
+
+  const acceptCookies = () => {
+    try {
+      localStorage.setItem("cookies_accepted", "true");
+    } catch {}
+    setShowCookieBanner(false);
+  };
 
   const recRef = useRef<any>(null);
   const wantRef = useRef(false);
@@ -584,8 +600,35 @@ export default function Home() {
           </section>
         </div>
 
-        <footer className="footer">Desarrollado por Raúl Rosales · Next.js · Web Speech API · Gemini</footer>
+        <footer className="footer">
+          <div>Desarrollado por Raúl Rosales · Next.js · Web Speech API · Gemini</div>
+          <div className="footer-links">
+            <a href="/privacidad" target="_blank" rel="noopener noreferrer">Política de Privacidad</a>
+            <span>·</span>
+            <a href="/cookies" target="_blank" rel="noopener noreferrer">Política de Cookies</a>
+            <span>·</span>
+            <a href="mailto:contacto@oceanicaweb.cl">Contacto: contacto@oceanicaweb.cl</a>
+          </div>
+        </footer>
       </main>
+
+      {showCookieBanner && (
+        <aside className="cookie-banner glass" role="region" aria-label="Aviso de Cookies">
+          <p style={{ margin: 0, fontSize: "0.86rem", lineHeight: 1.5 }}>
+            Utilizamos almacenamiento local y cookies técnicas esenciales para gestionar tu sesión y guardar tus preferencias. No usamos cookies de publicidad invasiva. Consulta nuestra{" "}
+            <a href="/cookies" target="_blank" rel="noopener noreferrer" className="link">Política de Cookies</a>{" "}
+            o escribe a <a href="mailto:contacto@oceanicaweb.cl" className="link">contacto@oceanicaweb.cl</a>.
+          </p>
+          <div className="cookie-banner-row">
+            <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="link" style={{ fontSize: "0.84rem" }}>
+              Ver privacidad
+            </a>
+            <button className="btn primary" style={{ padding: "6px 14px", fontSize: "0.85rem" }} onClick={acceptCookies}>
+              Aceptar cookies
+            </button>
+          </div>
+        </aside>
+      )}
 
       {authMode && <AuthModal mode={authMode} onMode={setAuthMode} onClose={() => setAuthMode(null)} />}
       {upgrade.open && (
