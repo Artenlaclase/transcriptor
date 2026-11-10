@@ -43,8 +43,19 @@ const ERRORS: Record<string, string> = {
   "auth/wrong-password": "Correo o contraseña incorrectos.",
   "auth/too-many-requests": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
   "auth/network-request-failed": "Sin conexión. Revisa tu internet.",
+  "auth/operation-not-allowed": "El acceso con correo y contraseña no está habilitado en Firebase (Authentication > Sign-in method).",
+  "auth/configuration-not-found": "Authentication no está activado en tu proyecto de Firebase. Pulsa «Comenzar» en Authentication y habilita Correo/contraseña.",
+  "auth/invalid-api-key": "La API key de Firebase (NEXT_PUBLIC_FIREBASE_API_KEY) no es válida.",
+  "auth/api-key-not-valid.-please-pass-a-valid-api-key.": "La API key de Firebase (NEXT_PUBLIC_FIREBASE_API_KEY) no es válida.",
+  "auth/user-disabled": "Esta cuenta está deshabilitada.",
+  "auth/unauthorized-domain": "El dominio no está autorizado en Firebase (Authentication > Settings > Authorized domains).",
 };
-const friendly = (e: any) => new Error(ERRORS[e?.code] || "No se pudo completar la operación. Inténtalo de nuevo.");
+const friendly = (e: any) => {
+  const code = e?.code ? String(e.code) : "";
+  const base = ERRORS[code] || "No se pudo completar la operación. Inténtalo de nuevo.";
+  if (!ERRORS[code]) console.error("Firebase Auth error:", e);
+  return new Error(code && !ERRORS[code] ? `${base} (código: ${code})` : base);
+};
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
