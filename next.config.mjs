@@ -26,6 +26,7 @@ const securityHeaders = [
   // El micrófono debe seguir permitido para el dictado en vivo
   { key: "Permissions-Policy", value: "microphone=(self), camera=(), geolocation=(), payment=()" },
   { key: "Cross-Origin-Opener-Policy", value: "unsafe-none" },
+  { key: "Access-Control-Allow-Headers", value: "Authorization, Content-Type, X-User-Name" },
 ];
 
 /** @type {import('next').NextConfig} */

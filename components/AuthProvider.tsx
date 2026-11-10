@@ -47,18 +47,23 @@ const ERRORS: Record<string, string> = {
   "auth/too-many-requests": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
   "auth/network-request-failed": "Sin conexión. Revisa tu internet.",
   "auth/operation-not-allowed": "El método de acceso no está habilitado en Firebase (Authentication > Sign-in method).",
-  "auth/internal-error": "Error interno de autenticación. Verifica que en Firebase > Authentication > Sign-in method > Google hayas seleccionado el 'Correo de asistencia del proyecto'.",
   "auth/configuration-not-found": "Authentication no está activado en tu proyecto de Firebase. Pulsa «Comenzar» en Authentication y habilita Correo/contraseña o Google.",
   "auth/invalid-api-key": "La API key de Firebase (NEXT_PUBLIC_FIREBASE_API_KEY) no es válida.",
   "auth/api-key-not-valid.-please-pass-a-valid-api-key.": "La API key de Firebase (NEXT_PUBLIC_FIREBASE_API_KEY) no es válida.",
   "auth/user-disabled": "Esta cuenta está deshabilitada.",
-  "auth/unauthorized-domain": "El dominio no está autorizado en Firebase (Authentication > Settings > Authorized domains).",
+  "auth/unauthorized-domain": "El dominio localhost no está autorizado en Firebase (Authentication > Settings > Authorized domains).",
 };
 const friendly = (e: any) => {
   const code = e?.code ? String(e.code) : "";
-  const base = ERRORS[code] || "No se pudo completar la operación. Inténtalo de nuevo.";
-  if (!ERRORS[code]) console.error("Firebase Auth error:", e);
-  return new Error(code && !ERRORS[code] ? `${base} (código: ${code})` : base);
+  const rawMsg = e?.message ? String(e.message) : "";
+  console.error("Firebase Auth raw error:", e);
+  
+  if (code === "auth/internal-error") {
+    return new Error(`Error interno de Google Auth: ${rawMsg || "Verifica guardar la configuración de Google y el SDK Web en Firebase"}`);
+  }
+
+  const base = ERRORS[code] || rawMsg || "No se pudo completar la operación. Inténtalo de nuevo.";
+  return new Error(code && !ERRORS[code] ? `${base} (${code})` : base);
 };
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -67,11 +72,19 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [plan, setPlan] = useState<Plan>("free");
   const [loading, setLoading] = useState(true);
 
-  const loadPlan = useCallback(async (u: User) => {
+  const loadPlan = useCallback(async (u: User, customName?: string) => {
     try {
       const token = await u.getIdToken();
-      const res = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setPlan((await res.json()).plan === "pro" ? "pro" : "free");
+      const n = customName || u.displayName || "";
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      if (n) headers["X-User-Name"] = encodeURIComponent(n);
+      
+      const res = await fetch("/api/me", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setPlan(data.plan === "pro" ? "pro" : "free");
+        if (data.name) setName(data.name);
+      }
     } catch {
       setPlan("free");
     }
@@ -107,7 +120,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
           await updateProfile(cred.user, { displayName: n });
           setName(n);
           sendEmailVerification(cred.user).catch(() => {});
-          loadPlan(cred.user);
+          loadPlan(cred.user, n);
         } catch (e) {
           throw friendly(e);
         }
@@ -116,7 +129,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         const auth = getFirebaseAuth();
         if (!auth) throw new Error("Firebase no está configurado.");
         try {
-          await signInWithEmailAndPassword(auth, email, password);
+          const cred = await signInWithEmailAndPassword(auth, email, password);
+          loadPlan(cred.user);
         } catch (e) {
           throw friendly(e);
         }
@@ -128,8 +142,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
           const provider = new GoogleAuthProvider();
           provider.setCustomParameters({ prompt: "select_account" });
           const res = await signInWithPopup(auth, provider);
-          setName(res.user.displayName || "");
-          loadPlan(res.user);
+          const gName = res.user.displayName || "";
+          setName(gName);
+          loadPlan(res.user, gName);
         } catch (e: any) {
           if (e?.code === "auth/popup-closed-by-user") return;
           throw friendly(e);

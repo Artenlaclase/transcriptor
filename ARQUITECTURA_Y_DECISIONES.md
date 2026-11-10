@@ -184,3 +184,12 @@ C:\proyectos\transcriptor\
   - Se agregaron `https://accounts.google.com` y `https://apis.google.com` a `connect-src` y `frame-src` en `next.config.mjs`.
   - Se ajustó `Cross-Origin-Opener-Policy` a `unsafe-none` para permitir la sincronización del popup de OAuth con la ventana principal.
   - Se mejoró el mapeo del mensaje de error en `AuthProvider.tsx` para guiar sobre el «Correo de asistencia del proyecto» exigido por Google Cloud/Firebase.
+
+
+## 09-11-2026 · Persistencia garantizada de 'name' en Firestore y diagnósticos de Google OAuth
+- **Persistencia de 'name' en Firestore:**
+  - Se identificó que al registrarse con correo y contraseña, `updateProfile` puede tardar unos milisegundos en propagarse al token JWT recién emitido.
+  - Para garantizar que el campo `name` nunca quede nulo en la colección `users/{uid}`, el cliente envía de forma síncrona `X-User-Name` durante `loadPlan`.
+  - El backend (`lib/serverAuth.ts`) prioriza `decoded.name || headerName`, garantizando que el nombre del usuario (ya sea ingresado manualmente o proveído por Google) se registre inmediatamente en Firestore tanto en documentos nuevos como existentes.
+- **Manejo de errores detallados de Google Auth:**
+  - Se mejoró `friendly(e)` en `AuthProvider.tsx` para exponer la causa detallada que arroja Google en lugar de un error genérico, facilitando la detección de configuraciones pendientes en la pantalla de consentimiento de Google Cloud/Firebase.

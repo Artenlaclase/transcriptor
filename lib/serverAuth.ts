@@ -39,11 +39,15 @@ export async function requireUser(req: Request): Promise<AuthedUser> {
   const ref = adminDb().collection("users").doc(decoded.uid);
   const snap = await ref.get();
   let plan: Plan = "free";
-  // El nombre viene del token verificado (registro con correo o cuenta de Google), nunca del cliente.
+
+  // El nombre puede provenir del token verificado o de la cabecera enviada durante el registro/login
+  const headerName = req.headers.get("x-user-name") ? decodeURIComponent(req.headers.get("x-user-name")!).trim().slice(0, 60) : null;
   const tokenName = typeof decoded.name === "string" && decoded.name.trim() ? decoded.name.trim().slice(0, 60) : null;
+  const resolvedName = tokenName || headerName || null;
+
   if (!snap.exists) {
     await ref.set({
-      name: tokenName,
+      name: resolvedName,
       email: decoded.email ?? null,
       provider: decoded.firebase?.sign_in_provider ?? null,
       plan: "free",
@@ -51,13 +55,15 @@ export async function requireUser(req: Request): Promise<AuthedUser> {
     });
   } else {
     const d = snap.data() ?? {};
-    // Completa el nombre si faltaba (p. ej. el token se emitió antes de guardar el perfil)
-    if (!d.name && tokenName) await ref.set({ name: tokenName }, { merge: true });
+    // Si no tenía nombre o hay uno resuelto más completo, actualizamos el campo 'name' en la base de datos
+    if ((!d.name || d.name !== resolvedName) && resolvedName) {
+      await ref.set({ name: resolvedName }, { merge: true });
+    }
     plan = d.plan === "pro" ? "pro" : "free";
     const until = d.proUntil?.toMillis?.();
     if (plan === "pro" && until && until < Date.now()) plan = "free"; // suscripción vencida
   }
-  return { uid: decoded.uid, email: decoded.email ?? null, name: tokenName, plan };
+  return { uid: decoded.uid, email: decoded.email ?? null, name: resolvedName, plan };
 }
 
 export function errorResponse(e: unknown) {
