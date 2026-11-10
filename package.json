@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "set-pro": "node --env-file=.env.local scripts/set-pro.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

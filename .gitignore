@@ -8,6 +8,7 @@ tsconfig.tsbuildinfo
 *-firebase-adminsdk-*.json
 
 # Documentación privada del proyecto (no se sube a Git)
+scripts/
 ARQUITECTURA_Y_DECISIONES.md
 FIREBASE_SETUP.md
 DOCUMENTACION_PRIVADA.md
