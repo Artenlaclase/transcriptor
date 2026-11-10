@@ -302,6 +302,11 @@ export default function Home() {
   };
 
   const copy = async (value: string) => {
+    if (!user) {
+      setAuthMode("register");
+      notify("Inicia sesión o crea una cuenta gratis para copiar el texto.", "err");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
@@ -475,11 +480,21 @@ export default function Home() {
               spellCheck
               lang="es"
               maxLength={200000}
+              onCopy={(e) => {
+                if (!user) {
+                  e.preventDefault();
+                  setAuthMode("register");
+                  notify("Inicia sesión o crea una cuenta gratis para copiar el texto.", "err");
+                }
+              }}
+              onCut={(e) => {
+                if (!user) e.preventDefault();
+              }}
             />
             {interim && <p className="interim">{interim}</p>}
             <div className="toolbar">
               <button className="btn" onClick={() => copy(text)} disabled={!text}>
-                {copied ? "✔ Copiado" : "📋 Copiar"}
+                {copied ? "✔ Copiado" : `${user ? "" : "🔒 "}📋 Copiar`}
               </button>
               <button className="btn" onClick={() => doExport(text, "txt", "transcripcion")} disabled={!text}>
                 {lock}⬇️ .txt
@@ -500,7 +515,10 @@ export default function Home() {
                 🗑️ Borrar
               </button>
             </div>
-            {plan !== "pro" && text && (
+            {text && !user && (
+              <small className="hint">🔒 Inicia sesión o crea una cuenta gratis para copiar. Descargar requiere el plan Pro.</small>
+            )}
+            {text && user && plan !== "pro" && (
               <small className="hint">🔒 Descargar en .txt / .md requiere el plan Pro. Copiar es gratis.</small>
             )}
           </section>
