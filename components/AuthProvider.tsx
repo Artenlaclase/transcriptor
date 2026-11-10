@@ -1,12 +1,14 @@
 "use client";
 import {
   createUserWithEmailAndPassword,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut as fbSignOut,
   updateProfile,
   type User,
@@ -96,6 +98,20 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       setLoading(false);
       return;
     }
+
+    // Capturar el retorno de Google Redirect si ocurrió
+    getRedirectResult(auth)
+      .then((res) => {
+        if (res?.user) {
+          const gName = res.user.displayName || "";
+          setName(gName);
+          loadPlan(res.user, gName);
+        }
+      })
+      .catch((e) => {
+        console.error("Error al procesar getRedirectResult:", e);
+      });
+
     return onAuthStateChanged(auth, (u) => {
       setUser(u);
       setName(u?.displayName || "");
@@ -138,15 +154,24 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       async signInWithGoogle() {
         const auth = getFirebaseAuth();
         if (!auth) throw new Error("Firebase no está configurado.");
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+
         try {
-          const provider = new GoogleAuthProvider();
-          provider.setCustomParameters({ prompt: "select_account" });
+          // Intentar primero con Popup
           const res = await signInWithPopup(auth, provider);
           const gName = res.user.displayName || "";
           setName(gName);
           loadPlan(res.user, gName);
         } catch (e: any) {
           if (e?.code === "auth/popup-closed-by-user") return;
+          
+          // Si el popup arroja internal-error o bloqueo de origen, usar signInWithRedirect (100% infalible)
+          if (e?.code === "auth/internal-error" || e?.code === "auth/popup-blocked" || e?.code === "auth/cancelled-popup-request") {
+            console.warn("Popup bloqueado o error interno, redirigiendo con signInWithRedirect...");
+            await signInWithRedirect(auth, provider);
+            return;
+          }
           throw friendly(e);
         }
       },

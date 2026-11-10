@@ -4,13 +4,13 @@ const isDev = process.env.NODE_ENV !== "production";
 // 'unsafe-inline' en script/style es necesario por el script de tema y los scripts de Next.js.
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://apis.google.com https://*.firebaseapp.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://*.googleusercontent.com",
   "media-src 'self' blob:",
   "font-src 'self'",
   `connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://apis.google.com https://accounts.google.com${isDev ? " ws: wss:" : ""}`,
-  "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
+  "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://content.googleapis.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

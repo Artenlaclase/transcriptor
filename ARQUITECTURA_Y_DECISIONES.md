@@ -193,3 +193,22 @@ C:\proyectos\transcriptor\
   - El backend (`lib/serverAuth.ts`) prioriza `decoded.name || headerName`, garantizando que el nombre del usuario (ya sea ingresado manualmente o proveído por Google) se registre inmediatamente en Firestore tanto en documentos nuevos como existentes.
 - **Manejo de errores detallados de Google Auth:**
   - Se mejoró `friendly(e)` en `AuthProvider.tsx` para exponer la causa detallada que arroja Google en lugar de un error genérico, facilitando la detección de configuraciones pendientes en la pantalla de consentimiento de Google Cloud/Firebase.
+
+
+## 09-11-2026 · Solución de Google Sign-In mediante Fallback Automático a Redirección (signInWithRedirect)
+- **Problema:** En entornos de desarrollo sobre `localhost`, Chrome y Edge frecuentemente bloquean las ventanas emergentes o cortan la comunicación del iframe interno de Firebase Auth con `auth/internal-error`.
+- **Solución implementada:**
+  - En `components/AuthProvider.tsx`, `signInWithGoogle` implementa una estrategia híbrida resiliente:
+    1. Intenta `signInWithPopup`.
+    2. Si detecta `auth/internal-error` o `auth/popup-blocked`, conmuta automáticamente a **`signInWithRedirect`**.
+    3. Al volver de `accounts.google.com`, `getRedirectResult` captura las credenciales del usuario, extrae su nombre (`res.user.displayName`) y ejecuta `loadPlan` para persistir su perfil y nombre en Firestore.
+  - Esto garantiza que el inicio de sesión con Google funcione de manera fluida y sin bloqueos de navegador.
+
+
+## 09-11-2026 · Habilitación de script-src y frame-src de Google/Firebase en CSP
+- **Problema:** Tras completar la redirección de Google OAuth, la sesión no se establecía y se producía un error en `el.onerror` dentro del SDK de Firebase Auth (`@firebase/auth`).
+- **Causa:** La directiva `script-src` de la cabecera CSP (`Content-Security-Policy`) en `next.config.mjs` no permitía `https://apis.google.com` ni `https://*.firebaseapp.com`. Al regresar del flujo de Google, Firebase inyecta dinámicamente el script `https://apis.google.com/js/api.js` para procesar el token de sesión; el navegador bloqueaba la carga de dicho script disparando el evento de fallo `el.onerror`.
+- **Solución:**
+  - Se agregaron `https://apis.google.com` y `https://*.firebaseapp.com` a `script-src`.
+  - Se agregó `https://*.googleusercontent.com` a `img-src` para permitir la visualización de los avatares de perfil de Google.
+  - Se agregó `https://content.googleapis.com` a `frame-src`.
