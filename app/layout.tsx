@@ -5,6 +5,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Voz a Texto · Transcripción con IA",
   description: "Transcribe voz y audio a texto en español y mejóralo con Gemini.",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export const viewport: Viewport = {
