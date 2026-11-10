@@ -9,8 +9,8 @@ const csp = [
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",
   "font-src 'self'",
-  `connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com${isDev ? " ws: wss:" : ""}`,
-  "frame-src https://*.firebaseapp.com",
+  `connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://apis.google.com https://accounts.google.com${isDev ? " ws: wss:" : ""}`,
+  "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -25,7 +25,7 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   // El micrófono debe seguir permitido para el dictado en vivo
   { key: "Permissions-Policy", value: "microphone=(self), camera=(), geolocation=(), payment=()" },
-  { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+  { key: "Cross-Origin-Opener-Policy", value: "unsafe-none" },
 ];
 
 /** @type {import('next').NextConfig} */

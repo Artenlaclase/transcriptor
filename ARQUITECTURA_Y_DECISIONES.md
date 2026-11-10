@@ -173,3 +173,14 @@ C:\proyectos\transcriptor\
     - **En UI (`app/page.tsx`):** Cada botón de IA muestra el icono de candado `🔒` para usuarios con plan Gratis o sin sesión, y al hacer clic abre la comparativa y el aviso de suscripción Pro (`UpgradeModal`).
     - **En Backend (`app/api/gemini/route.ts`):** Las peticiones JSON de IA rechazan con código `402 (PRO_REQUIRED)` si el usuario no cuenta con `user.plan === 'pro'`, impidiendo cualquier elusión de las restricciones desde el cliente.
   - La tabla de planes en `UpgradeModal.tsx` y la documentación se actualizaron para reflejar esta nueva estructura comercial.
+
+
+## 09-11-2026 · Solución de CSP y COOP para Google Sign-In Popup
+- **Problema:** Al hacer clic en «Continuar con Google», se producía el error `auth/internal-error`.
+- **Causa técnica:**
+  1. La política CSP (`Content-Security-Policy`) en `next.config.mjs` no incluía `https://accounts.google.com` en `frame-src` ni en `connect-src`, bloqueando la ventana emergente/iframe de autenticación de Google.
+  2. La cabecera `Cross-Origin-Opener-Policy: same-origin-allow-popups` impedía que el handler de retorno de Firebase Auth accediera a `window.opener` para transmitir las credenciales a la app.
+- **Solución:**
+  - Se agregaron `https://accounts.google.com` y `https://apis.google.com` a `connect-src` y `frame-src` en `next.config.mjs`.
+  - Se ajustó `Cross-Origin-Opener-Policy` a `unsafe-none` para permitir la sincronización del popup de OAuth con la ventana principal.
+  - Se mejoró el mapeo del mensaje de error en `AuthProvider.tsx` para guiar sobre el «Correo de asistencia del proyecto» exigido por Google Cloud/Firebase.
